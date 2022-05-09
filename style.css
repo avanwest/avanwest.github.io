@@ -1,0 +1,79 @@
+* {
+    font-size:  16px;
+}
+
+body {
+  display: grid;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  place-items: center center;
+}
+
+.row>* {
+    padding-left:  0 !important;
+    padding-right: 0 !important;
+}
+
+.header, 
+.aboutContainer, 
+.mainContainer, 
+.footerContainer {
+    margin-top: 1.2em;
+    margin-bottom: 1.2em;
+    margin-right: 0;
+    margin-left: 0;
+    padding: 0;
+}
+
+.aboutText {
+   height: auto;
+   text-align: center;
+}
+
+#typewriter {
+    font-family: 'Rajdhani', sans-serif;
+    margin: 0;
+    padding-right: 3em;
+    padding-left: 3em;
+}
+
+
+#myCanvas {
+	min-height: 500px;
+	height: auto;
+}
+
+.buttonPanel {
+    margin-top: auto;
+    margin-bottom: auto;
+}
+
+.newSketchButtonContainer, .saveSketchButtonContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+    height: auto;
+}
+
+.newSketchButton, .saveSketchButton {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    margin: 20px;
+}
+
+.newSketchButton {
+    background-color: #daf2cb;
+    border-color: black;
+}
+
+.saveSketchButton {
+    background-color: #f2ddcb;
+    border-color:  black;
+}
+
+.copyright {
+    font-size: 0.6em;
+    text-align: right;
+}
+

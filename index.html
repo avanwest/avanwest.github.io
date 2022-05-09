@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="Adam vanWestrienen">
+    <title>Adam vanWestrienen - Professional Developer Website</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- p5.js -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
+    <script src="sketch.js"></script>
+
+
+  </head>
+  <body>
+    <div class="container-fluid">
+        <div class="row header">
+            <div class="col-1 leftPad"></div>
+            <div class="col-8 logo">/\/\/\/</div>
+            <div class="col-2"></div>
+            <div class="col-1 rightPad"></div>
+        </div>
+        <div class="row aboutContainer">
+            <div class="col-1 leftPad"></div>
+            <div class="col-8 aboutText">
+                <p id="typewriter">
+                  Blah blah blah my name is Adam vanWestrienen blah blah
+                  I code for living and make my own stuff blah i'm so great
+                  me me me get in touch if you want my links are below
+                  or just save yourself a random sketch and take it easy.             
+                </p>
+            </div>
+            <div class="col-2"></div>
+            <div class="col-1 rightPad"></div>
+        </div>
+        <div class="row mainContainer">
+          <div class="col-1 rightPad"></div>
+          <div id="myCanvas" width="500" height="500" class="col-8 mainCol pictureFrame"></div>
+          <div class="col-2 buttonPanel">
+            <div class="newSketchButtonContainer">
+              <button onclick=loadNewSketch() type="button" class="btn newSketchButton">New</button>
+            </div>
+            <div class="saveSketchButtonContainer">
+              <button onclick=saveSketch() type="button" class="btn saveSketchButton">Save</button>
+            </div>
+          </div>
+          <div class="col-1 leftPad"></div>
+        </div>
+        <div class="row footerContainer">
+          <div class="col-1 rightPad"></div>
+          <div class="col-8 footerMainCol">
+            <p class="copyright">
+              <span>&copy</span> 
+              2022 Adam vanWestrienen
+            </p>
+          </div>
+          <div class="col-2 footerSideCol"></div>
+          <div class="col-1 leftPad"></div>
+        </div>
+    </div>
+
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
