@@ -33,9 +33,28 @@ body {
 
 #typewriter {
     font-family: 'Rajdhani', sans-serif;
+    font-weight: 400;
     margin: 0;
     padding-right: 3em;
     padding-left: 3em;
+}
+
+.name {
+    font-weight: 600;
+    font-style: bold;
+}
+
+a:link {
+    text-decoration: none;
+    color: #F57470;
+}
+
+a:hover {
+    color: #A8403D;
+}
+
+a:visited {
+    color: #2CA857;
 }
 
 
