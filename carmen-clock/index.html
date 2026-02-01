@@ -1,34 +1,25 @@
-<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Daily Mark Clock</title>
-<style>
-html, body { margin:0; padding:0; height:100%; background:#000; overflow:hidden; }
-canvas { display:block; }
-/* Ensure p5 DOM elements sit above canvas */
-.p5DomButton { position:fixed; z-index:9999; }
-</style>
-<script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
-</head>
-<body>
-  <div style="position: fixed; top:12px; left:12px; background: hotpink; font: 14px;">FUCKKKER</div>
-<script>
-  console.log('Carmen CLOCK IS LOADING FUCKER');
-/**
-* Daily Mark Clock (seeded generative) + Secret "new" button
+/* Carmen Clock p5.js global mode (window.*) + secret "new" button
+*
+* Fixes "no canvas" issues by binding setup/draw/etc to window explicitly.
 * - Tap/click shows "new" button; hides after 10s inactivity
-* - Clicking "new" changes the style variant (new seeds + param tweaks)
-* - Time stays live and correct (we never freeze/override clock time)
+* - Clicking "new" changes the style variant (new seeded composition)
+* - Time stays live and correct (we never override Date())
+* - Day/Night background via geolocation + sunrise-sunset.org (fallback)
 */
 
-const CONFIG = {
-dayBg: '#F4F1EA', // off-white
-nightBg: '#0B0B0C', // near-black
+/* global createCanvas, windowWidth, windowHeight, angleMode, textFont,
+background, width, height, push, pop, translate, scale, randomSeed,
+random, noStroke, fill, triangle, rectMode, rect, beginShape, vertex,
+endShape, CLOSE, rotate, stroke, strokeWeight, strokeCap, SQUARE,
+line, cos, sin, map, textAlign, CENTER, textSize, text, millis,
+createButton
+*/
 
-// Base palette; variants will rotate/shift picks
-palette: ['#0B0B0C', '#E4241C', '#0A8F4E', '#F2C200'],
+(function () {
+const CONFIG = {
+dayBg: "#F4F1EA",
+nightBg: "#0B0B0C",
+palette: ["#0B0B0C", "#E4241C", "#0A8F4E", "#F2C200"],
 
 centerRadius: 36,
 orbitRadius: 140,
@@ -41,62 +32,59 @@ rayMaxWeight: 18,
 clockFontSize: 26,
 stampFontSize: 16,
 
-// Secret button behavior
 uiHideAfterMs: 10000,
 };
 
 let isDaylight = true;
 let lastSunFetchDayKey = null;
 
-// Secret button state
+// UI state
 let newBtn = null;
 let uiHideTimer = null;
 let lastActivityMs = 0;
 
-// Style variant state
-// This is the “new canvas with new styles”. It’s still the same canvas,
-// but a different ruleset seed + slight param modifiers.
+// Variant state
 let styleVariant = 0;
 let variantSalt = 0;
 
-function setup() {
+// ----------------------
+// p5 lifecycle (bound to window)
+// ----------------------
+
+window.setup = function () {
 createCanvas(windowWidth, windowHeight);
-angleMode(DEGREES);
-textFont('system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial');
+angleMode("degrees");
+textFont("system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial");
 
-// Variant salt: stable across reloads if you want (optional).
-// Comment the next 3 lines if you *don’t* want persistence.
-const saved = localStorage.getItem('dailyMarkClockVariantSalt');
+// Restore variantSalt (optional persistence)
+try {
+const saved = localStorage.getItem("carmenClockVariantSalt");
 variantSalt = saved ? parseInt(saved, 10) : 0;
+} catch (e) {
+variantSalt = 0;
+}
 
-// Create secret "new" button (hidden by default)
-newBtn = createButton('new');
-newBtn.addClass('p5DomButton');
+// Create secret button
+newBtn = createButton("new");
+newBtn.addClass("p5DomButton");
 styleSecretButton();
 newBtn.hide();
 
-// Clicking "new" = rotate to a new variant, keep time live
-newBtn.mousePressed(() => {
+newBtn.mousePressed(function () {
 registerActivity();
 bumpVariant();
 });
 
-// Show UI on load briefly (optional)
 registerActivity();
-
 refreshDaylightStatus();
-}
+};
 
-function windowResized() {
-resizeCanvas(windowWidth, windowHeight);
-positionSecretButton();
-}
-
-function draw() {
+window.draw = function () {
 const now = new Date();
-const dayKey = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+const dayKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(
+now.getDate()
+)}`;
 
-// Refresh sunrise/sunset once per day
 if (lastSunFetchDayKey !== dayKey) refreshDaylightStatus();
 
 background(isDaylight ? CONFIG.dayBg : CONFIG.nightBg);
@@ -104,13 +92,12 @@ background(isDaylight ? CONFIG.dayBg : CONFIG.nightBg);
 const cx = width / 2;
 const cy = height / 2;
 const minDim = Math.min(width, height);
-const scale = minDim / 900;
+const s = minDim / 900;
 
 push();
 translate(cx, cy);
-scale(scale);
+scale(s);
 
-// Deterministic, but variant changes the seed + a few parameters
 drawDailyCenterShape(dayKey);
 drawHourlyRays(dayKey, now.getHours());
 drawMinuteOrbiter(now);
@@ -119,29 +106,36 @@ pop();
 
 drawClockStamp(now);
 
-// Keep button in the correct spot if orientation changes
+// keep button readable as bg flips
+styleSecretButton();
 positionSecretButton();
+};
+
+window.windowResized = function () {
+// resizeCanvas exists in p5 global mode
+if (typeof window.resizeCanvas === "function") {
+window.resizeCanvas(windowWidth, windowHeight);
 }
+positionSecretButton();
+};
 
 // ----------------------
-// Secret button mechanics
+// Input → activity tracking (secret button visibility)
 // ----------------------
 
-function mousePressed() {
+window.mousePressed = function () {
 registerActivity();
-// don’t block drawing
-}
+};
 
-function touchStarted() {
+window.touchStarted = function () {
 registerActivity();
-// prevent double-tap zoom / scrolling quirks
+// prevent page scroll / double-tap zoom weirdness
 return false;
-}
+};
 
-function mouseMoved() {
-// low-cost: only register activity if UI is hidden or time since last activity is large
+window.mouseMoved = function () {
 if (millis() - lastActivityMs > 500) registerActivity();
-}
+};
 
 function registerActivity() {
 lastActivityMs = millis();
@@ -149,46 +143,57 @@ showSecretButtonTemporarily();
 }
 
 function showSecretButtonTemporarily() {
+if (!newBtn) return;
+
 newBtn.show();
 positionSecretButton();
 
-// Reset hide timer
 if (uiHideTimer) clearTimeout(uiHideTimer);
-uiHideTimer = setTimeout(() => {
+uiHideTimer = setTimeout(function () {
 newBtn.hide();
 }, CONFIG.uiHideAfterMs);
 }
 
 function positionSecretButton() {
 if (!newBtn) return;
-// Top-left, with a little inset
 newBtn.position(14, 14);
 }
 
 function styleSecretButton() {
-// Simple modern, unobtrusive
-newBtn.style('background', 'rgba(255,255,255,0.12)');
-newBtn.style('color', isDaylight ? '#0B0B0C' : '#F4F1EA');
-newBtn.style('border', isDaylight ? '1px solid rgba(0,0,0,0.25)' : '1px solid rgba(255,255,255,0.25)');
-newBtn.style('padding', '8px 12px');
-newBtn.style('border-radius', '10px');
-newBtn.style('font-size', '14px');
-newBtn.style('letter-spacing', '0.08em');
-newBtn.style('text-transform', 'uppercase');
+if (!newBtn) return;
+
+// NOTE: if your site has global CSS that affects buttons,
+// p5's .style() writes inline styles that usually win.
+newBtn.style("position", "fixed");
+newBtn.style("z-index", "99999");
+newBtn.style("background", "rgba(255,255,255,0.12)");
+newBtn.style("color", isDaylight ? "#0B0B0C" : "#F4F1EA");
+newBtn.style(
+"border",
+isDaylight
+? "1px solid rgba(0,0,0,0.25)"
+: "1px solid rgba(255,255,255,0.25)"
+);
+newBtn.style("padding", "8px 12px");
+newBtn.style("border-radius", "10px");
+newBtn.style("font-size", "14px");
+newBtn.style("letter-spacing", "0.08em");
+newBtn.style("text-transform", "uppercase");
+newBtn.style("cursor", "pointer");
 }
 
-// Called when you press "new"
 function bumpVariant() {
-// Change both the discrete variant and a salt to make it feel “new”
-styleVariant = (styleVariant + 1) % 7; // 7 distinct families is plenty
+styleVariant = (styleVariant + 1) % 7;
 variantSalt = (variantSalt + 1) % 1000000;
-
-// Persist (optional)
-localStorage.setItem('dailyMarkClockVariantSalt', String(variantSalt));
+try {
+localStorage.setItem("carmenClockVariantSalt", String(variantSalt));
+} catch (e) {
+// ignore
+}
 }
 
 // ----------------------
-// Drawing (variant-aware)
+// Drawing
 // ----------------------
 
 function drawDailyCenterShape(dayKey) {
@@ -197,8 +202,10 @@ randomSeed(seed);
 
 const v = getVariantParams();
 
-const x = random(-CONFIG.centerRadius, CONFIG.centerRadius) * v.centerJitter;
-const y = random(-CONFIG.centerRadius, CONFIG.centerRadius) * v.centerJitter;
+const x =
+random(-CONFIG.centerRadius, CONFIG.centerRadius) * v.centerJitter;
+const y =
+random(-CONFIG.centerRadius, CONFIG.centerRadius) * v.centerJitter;
 
 const fillCol = pickPalette(seed, 0, v.paletteShift);
 
@@ -207,47 +214,63 @@ fill(fillCol);
 
 const size = CONFIG.dailyShapeSize * v.dailySize;
 
-// Constrain geometry for a crisp hard-edge feel
-const shapeType = v.shapeFamily === 0 ? 0 : (v.shapeFamily === 1 ? 1 : Math.floor(random(0, 3)));
+const shapeType =
+v.shapeFamily === 0
+? 0
+: v.shapeFamily === 1
+? 1
+: Math.floor(random(0, 3));
 
 if (shapeType === 0) {
-// Triangle plane
 push();
 translate(x, y);
-rotate(v.allowTilt ? random(-14, 14) : snapAngle(random(0, 360), v.snapDegrees));
-triangle(-size*0.45, size*0.35, size*0.50, size*0.10, -size*0.10, -size*0.55);
+rotate(
+v.allowTilt ? random(-14, 14) : snapAngle(random(0, 360), v.snapDegrees)
+);
+triangle(
+-size * 0.45,
+size * 0.35,
+size * 0.5,
+size * 0.1,
+-size * 0.1,
+-size * 0.55
+);
 pop();
 } else if (shapeType === 1) {
-// Trapezoid
 push();
 translate(x, y);
-rotate(v.allowTilt ? random(-12, 12) : snapAngle(random(0, 360), v.snapDegrees));
+rotate(
+v.allowTilt ? random(-12, 12) : snapAngle(random(0, 360), v.snapDegrees)
+);
 beginShape();
-vertex(-size*0.55, size*0.35);
-vertex( size*0.55, size*0.25);
-vertex( size*0.25, -size*0.45);
-vertex(-size*0.65, -size*0.25);
+vertex(-size * 0.55, size * 0.35);
+vertex(size * 0.55, size * 0.25);
+vertex(size * 0.25, -size * 0.45);
+vertex(-size * 0.65, -size * 0.25);
 endShape(CLOSE);
 pop();
 } else {
-// Slab rectangle
 push();
 translate(x, y);
-rotate(v.allowTilt ? random(-10, 10) : snapAngle(random(0, 360), v.snapDegrees));
-rectMode(CENTER);
-rect(0, 0, size*0.95, size*0.55);
+rotate(
+v.allowTilt ? random(-10, 10) : snapAngle(random(0, 360), v.snapDegrees)
+);
+rectMode("center");
+rect(0, 0, size * 0.95, size * 0.55);
 pop();
 }
 
-// Optional counter-plane for tension (Herrera-ish), controlled per variant
 if (random() < v.counterPlaneChance) {
 const fillCol2 = pickPalette(seed, 1, v.paletteShift);
 fill(fillCol2);
+
 push();
 translate(x, y);
-rotate(v.allowTilt ? random(-14, 14) : snapAngle(random(0, 360), v.snapDegrees));
-rectMode(CENTER);
-rect(size*0.18, -size*0.12, size*0.70, size*0.18);
+rotate(
+v.allowTilt ? random(-14, 14) : snapAngle(random(0, 360), v.snapDegrees)
+);
+rectMode("center");
+rect(size * 0.18, -size * 0.12, size * 0.7, size * 0.18);
 pop();
 }
 }
@@ -255,20 +278,19 @@ pop();
 function drawHourlyRays(dayKey, hour) {
 const v = getVariantParams();
 
-// Optionally reduce rays for “more gallery”
 const maxH = Math.max(0, Math.min(23, hour));
-const step = v.hourStep; // 1 = every hour, 2 = every 2 hours, etc.
+const step = v.hourStep;
 
 for (let h = 0; h <= maxH; h += step) {
 const seed = hash32(`${dayKey}-V${styleVariant}-S${variantSalt}-H${h}`);
 randomSeed(seed);
 
-// Controlled spread; keep it composed
 const angleBase = map(h, 0, 23, -120, 240);
 const a = angleBase + random(-6, 6) * v.rayAngleWobble;
 
 const len = random(CONFIG.rayMinLen, CONFIG.rayMaxLen) * v.rayLength;
-const w = random(CONFIG.rayMinWeight, CONFIG.rayMaxWeight) * v.rayWeight;
+const w =
+random(CONFIG.rayMinWeight, CONFIG.rayMaxWeight) * v.rayWeight;
 
 const col = pickPalette(seed, 2, v.paletteShift);
 stroke(col);
@@ -289,10 +311,15 @@ function drawMinuteOrbiter(now) {
 const v = getVariantParams();
 
 const minutes = now.getMinutes();
-const seconds = now.getSeconds() + now.getMilliseconds()/1000;
-const minuteAngle = map(minutes + seconds/60, 0, 60, -90, 270);
+const seconds = now.getSeconds() + now.getMilliseconds() / 1000;
+const minuteAngle = map(minutes + seconds / 60, 0, 60, -90, 270);
 
-const seed = hash32(`${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}-V${styleVariant}-S${variantSalt}-MIN`);
+const seed = hash32(
+`${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(
+now.getDate()
+)}-V${styleVariant}-S${variantSalt}-MIN`
+);
+
 const col = pickPalette(seed, 3, v.paletteShift);
 
 noStroke();
@@ -306,18 +333,15 @@ push();
 translate(ox, oy);
 rotate(minuteAngle + 90);
 
-// Variant can choose orbiter form
 const s = 44 * v.orbiterSize;
 if (v.orbiterShape === 0) {
-// wedge
-triangle(-s*0.9, 0, s*0.9, 0, 0, -s*1.4);
+triangle(-s * 0.9, 0, s * 0.9, 0, 0, -s * 1.4);
 } else {
-// diamond
 beginShape();
-vertex(0, -s*1.2);
-vertex(s*0.9, 0);
-vertex(0, s*1.2);
-vertex(-s*0.9, 0);
+vertex(0, -s * 1.2);
+vertex(s * 0.9, 0);
+vertex(0, s * 1.2);
+vertex(-s * 0.9, 0);
 endShape(CLOSE);
 }
 pop();
@@ -326,17 +350,249 @@ pop();
 function drawClockStamp(now) {
 const hh = now.getHours();
 const mm = now.getMinutes();
-const dateStr = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+const dateStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(
+now.getDate()
+)}`;
 const timeStr = `${pad2(hh)}:${pad2(mm)}`;
 
-const fg = isDaylight ? '#0B0B0C' : '#F4F1EA';
+const fg = isDaylight ? "#0B0B0C" : "#F4F1EA";
 
 noStroke();
 fill(fg);
 
 textAlign(CENTER, CENTER);
 textSize(CONFIG.clockFontSize);
-text(timeStr, width/2, height - 54);
+text(timeStr, width / 2, height - 54);
 
 textSize(CONFIG.stampFontSize);
-text(dateStr, width/2, height
+text(dateStr, width / 2, height - 28);
+}
+
+// ----------------------
+// Variant params
+// ----------------------
+
+function getVariantParams() {
+switch (styleVariant) {
+case 0:
+return {
+paletteShift: 0,
+dailySize: 1.0,
+centerJitter: 1.0,
+rayLength: 1.0,
+rayWeight: 1.0,
+rayAngleWobble: 1.0,
+orbitRadius: 1.0,
+orbiterSize: 1.0,
+orbiterShape: 0,
+hourStep: 1,
+allowTilt: true,
+snapDegrees: 90,
+shapeFamily: 2,
+counterPlaneChance: 0.35,
+};
+case 1:
+return {
+paletteShift: 1,
+dailySize: 0.92,
+centerJitter: 0.85,
+rayLength: 0.95,
+rayWeight: 1.1,
+rayAngleWobble: 0.7,
+orbitRadius: 1.05,
+orbiterSize: 0.95,
+orbiterShape: 1,
+hourStep: 1,
+allowTilt: false,
+snapDegrees: 90,
+shapeFamily: 0,
+counterPlaneChance: 0.25,
+};
+case 2:
+return {
+paletteShift: 2,
+dailySize: 1.05,
+centerJitter: 0.75,
+rayLength: 1.1,
+rayWeight: 0.9,
+rayAngleWobble: 0.55,
+orbitRadius: 0.95,
+orbiterSize: 1.05,
+orbiterShape: 0,
+hourStep: 2,
+allowTilt: false,
+snapDegrees: 45,
+shapeFamily: 1,
+counterPlaneChance: 0.18,
+};
+case 3:
+return {
+paletteShift: 3,
+dailySize: 0.88,
+centerJitter: 0.65,
+rayLength: 0.9,
+rayWeight: 1.25,
+rayAngleWobble: 0.6,
+orbitRadius: 1.1,
+orbiterSize: 0.9,
+orbiterShape: 1,
+hourStep: 2,
+allowTilt: true,
+snapDegrees: 90,
+shapeFamily: 2,
+counterPlaneChance: 0.3,
+};
+case 4:
+return {
+paletteShift: 0,
+dailySize: 1.12,
+centerJitter: 1.1,
+rayLength: 1.05,
+rayWeight: 0.85,
+rayAngleWobble: 1.0,
+orbitRadius: 0.9,
+orbiterSize: 1.1,
+orbiterShape: 0,
+hourStep: 3,
+allowTilt: false,
+snapDegrees: 90,
+shapeFamily: 0,
+counterPlaneChance: 0.12,
+};
+case 5:
+return {
+paletteShift: 2,
+dailySize: 0.96,
+centerJitter: 0.9,
+rayLength: 1.15,
+rayWeight: 1.0,
+rayAngleWobble: 0.8,
+orbitRadius: 1.0,
+orbiterSize: 1.0,
+orbiterShape: 1,
+hourStep: 1,
+allowTilt: true,
+snapDegrees: 45,
+shapeFamily: 1,
+counterPlaneChance: 0.22,
+};
+case 6:
+return {
+paletteShift: 1,
+dailySize: 1.0,
+centerJitter: 0.55,
+rayLength: 0.85,
+rayWeight: 1.4,
+rayAngleWobble: 0.5,
+orbitRadius: 1.15,
+orbiterSize: 0.85,
+orbiterShape: 0,
+hourStep: 4,
+allowTilt: false,
+snapDegrees: 90,
+shapeFamily: 2,
+counterPlaneChance: 0.1,
+};
+default:
+return {
+paletteShift: 0,
+dailySize: 1,
+centerJitter: 1,
+rayLength: 1,
+rayWeight: 1,
+rayAngleWobble: 1,
+orbitRadius: 1,
+orbiterSize: 1,
+orbiterShape: 0,
+hourStep: 1,
+allowTilt: true,
+snapDegrees: 90,
+shapeFamily: 2,
+counterPlaneChance: 0.35,
+};
+}
+}
+
+function snapAngle(angle, snapDegrees) {
+const s = snapDegrees || 90;
+return Math.round(angle / s) * s;
+}
+
+// ----------------------
+// Daylight detection
+// ----------------------
+
+function refreshDaylightStatus() {
+const now = new Date();
+const dayKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(
+now.getDate()
+)}`;
+lastSunFetchDayKey = dayKey;
+
+if (!navigator.geolocation) {
+isDaylight = fallbackIsDaylight(now);
+return;
+}
+
+navigator.geolocation.getCurrentPosition(
+async function (pos) {
+try {
+const lat = pos.coords.latitude;
+const lng = pos.coords.longitude;
+
+const url = `https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`;
+const res = await fetch(url, { cache: "no-store" });
+const data = await res.json();
+
+if (!data || data.status !== "OK") {
+isDaylight = fallbackIsDaylight(now);
+return;
+}
+
+const sunrise = new Date(data.results.sunrise);
+const sunset = new Date(data.results.sunset);
+
+const curMin = now.getHours() * 60 + now.getMinutes();
+const sunriseMin = sunrise.getHours() * 60 + sunrise.getMinutes();
+const sunsetMin = sunset.getHours() * 60 + sunset.getMinutes();
+
+isDaylight = curMin >= sunriseMin && curMin < sunsetMin;
+} catch (e) {
+isDaylight = fallbackIsDaylight(now);
+}
+},
+function () {
+isDaylight = fallbackIsDaylight(now);
+},
+{ timeout: 4000 }
+);
+}
+
+function fallbackIsDaylight(now) {
+const h = now.getHours();
+return h >= 7 && h < 19;
+}
+
+// ----------------------
+// Utilities
+// ----------------------
+
+function pad2(n) {
+return String(n).padStart(2, "0");
+}
+
+function pickPalette(seed, offset, shift) {
+const s = shift || 0;
+const idx = Math.abs((seed + offset * 9973 + s * 131) % CONFIG.palette.length);
+return CONFIG.palette[idx];
+}
+
+function hash32(str) {
+let h = 2166136261 >>> 0;
+for (let i = 0; i < str.length; i++) {
+h ^= str.charCodeAt(i);
+h = Math.imul(h, 16777619);
+}
+return h >>> 0;
+}
+})();
